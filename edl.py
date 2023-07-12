@@ -110,6 +110,7 @@ def main():
     parser.add_argument('-gpt-num-part-entries', metavar="<number>", type=int, help='[CMD:Firehose] Number of partitions', default=None)
     parser.add_argument('-gpt-part-entry-size', metavar="<number>", type=int, help='[CMD:Firehose] Size of partition entry', default=None)
     parser.add_argument('-gpt-part-entry-start-lba', metavar="<number>", type=int, help='[CMD:Firehose] Beginning of partition entries', default=None)
+    parser.add_argument('-non-standard-responses', help='[CMD:Firehose] Enable non standard response support (for KaiOS Nokias / Alcatel Cingular Flip)', action="store_true")
 
 
     args = parser.parse_args()
@@ -190,11 +191,11 @@ def main():
         fh = qualcomm_firehose(cdc,xml,cfg)
         info=fh.connect(0)
         if args.gpt!='':
-            fh.cmd_read(args.lun, 0, 0x4000//cfg.SECTOR_SIZE_IN_BYTES, args.gpt)
+            fh.cmd_read(args.lun, 0, 0x4000//cfg.SECTOR_SIZE_IN_BYTES, args.non_standard_responses, args.gpt)
             print(f"Dumped GPT to {args.gpt}")
             exit(0)
         elif args.printgpt==True:
-            data = fh.cmd_read_buffer(args.lun, 0, 0x4000 // cfg.SECTOR_SIZE_IN_BYTES)
+            data = fh.cmd_read_buffer(args.lun, 0, 0x4000 // cfg.SECTOR_SIZE_IN_BYTES, args.non_standard_responses)
             if data!='':
                 guid_gpt = gpt(
                     num_part_entries=args.gpt_num_part_entries,
@@ -212,7 +213,7 @@ def main():
                 exit(0)
             partitionname=args.r[0]
             filename=args.r[1]
-            data = fh.cmd_read_buffer(args.lun, 0, 0x4000 // cfg.SECTOR_SIZE_IN_BYTES,False)
+            data = fh.cmd_read_buffer(args.lun, 0, 0x4000 // cfg.SECTOR_SIZE_IN_BYTES, args.non_standard_responses, False)
             guid_gpt = gpt(
                 num_part_entries=args.gpt_num_part_entries,
                 part_entry_size=args.gpt_part_entry_size,
@@ -222,21 +223,21 @@ def main():
 
             for partition in guid_gpt.partentries:
                 if partition.name==partitionname:
-                    data = fh.cmd_read(args.lun, partition.sector, partition.sectors, filename)
+                    data = fh.cmd_read(args.lun, partition.sector, partition.sectors, args.non_standard_responses, filename)
                     print(f"Dumped sector {str(partition.sector)} with sector count {str(partition.sectors)} as {filename}.")
                     exit(0)
             print(f"Error: Couldn't detect partition: {partitionname}")
             exit(0)
         elif args.rf!='':
             filename=args.rf
-            data = fh.cmd_read_buffer(args.lun, 0, 0x4000 // cfg.SECTOR_SIZE_IN_BYTES,False)
+            data = fh.cmd_read_buffer(args.lun, 0, 0x4000 // cfg.SECTOR_SIZE_IN_BYTES, args.non_standard_responses, False)
             guid_gpt = gpt(
                 num_part_entries=args.gpt_num_part_entries,
                 part_entry_size=args.gpt_part_entry_size,
                 part_entry_start_lba=args.gpt_part_entry_start_lba,
             )
             guid_gpt.parse(data, cfg.SECTOR_SIZE_IN_BYTES)
-            data = fh.cmd_read(args.lun, 0, guid_gpt.totalsectors, filename)
+            data = fh.cmd_read(args.lun, 0, guid_gpt.totalsectors, args.non_standard_responses, filename)
             print(f"Dumped sector 0 with sector count {str(guid_gpt.totalsectors)} as {filename}.")
             exit(0)
         elif args.pbl!='':
@@ -283,7 +284,7 @@ def main():
             exit(0)
         elif args.footer!='':
             filename=args.footer
-            data = fh.cmd_read_buffer(args.lun, 0, 0x4000 // cfg.SECTOR_SIZE_IN_BYTES,False)
+            data = fh.cmd_read_buffer(args.lun, 0, 0x4000 // cfg.SECTOR_SIZE_IN_BYTES, args.non_standard_responses, False)
             guid_gpt = gpt(
                 num_part_entries=args.gpt_num_part_entries,
                 part_entry_size=args.gpt_part_entry_size,
@@ -294,7 +295,7 @@ def main():
             for partition in guid_gpt.partentries:
                 if partition.name in pnames:
                     print(f"Detected partition: {partition.name}")
-                    data = fh.cmd_read_buffer(args.lun, partition.sector+(partition.sectors-(0x4000 // cfg.SECTOR_SIZE_IN_BYTES)), (0x4000 // cfg.SECTOR_SIZE_IN_BYTES), filename)
+                    data = fh.cmd_read_buffer(args.lun, partition.sector+(partition.sectors-(0x4000 // cfg.SECTOR_SIZE_IN_BYTES)), (0x4000 // cfg.SECTOR_SIZE_IN_BYTES), args.non_standard_responses, filename)
                     val=struct.unpack("<I",data[:4])[0]
                     if ((val&0xFFFFFFF0)==0xD0B5B1C0):
                         with open(filename,"wb") as wf:
@@ -310,7 +311,7 @@ def main():
             start=int(args.rs[0])
             sectors=int(args.rs[1])
             filename=args.rs[2]
-            data = fh.cmd_read(args.lun, start, sectors, filename)
+            data = fh.cmd_read(args.lun, start, sectors, args.non_standard_responses, filename)
             print(f"Dumped sector {str(start)} with sector count {str(sectors)} as {filename}.")
             exit(0)
         elif len(args.peek)!=0:
@@ -340,7 +341,7 @@ def main():
             if not os.path.exists(filename):
                 print(f"Error: Couldn't find file: {filename}")
                 exit(0)
-            data = fh.cmd_read_buffer(args.lun, 0, 0x4000 // cfg.SECTOR_SIZE_IN_BYTES,False)
+            data = fh.cmd_read_buffer(args.lun, 0, 0x4000 // cfg.SECTOR_SIZE_IN_BYTES, args.non_standard_responses, False)
             guid_gpt = gpt(
                 num_part_entries=args.gpt_num_part_entries,
                 part_entry_size=args.gpt_part_entry_size,
@@ -356,7 +357,7 @@ def main():
                     if sectors>partition.sectors:
                         print(f"Error: {filename} has {sectors} sectors but partition only has {partition.sectors}.")
                         exit(0)
-                    data = fh.cmd_write(args.lun, partition.sector, filename)
+                    data = fh.cmd_write(args.lun, partition.sector, filename, args.non_standard_responses)
                     print(f"Wrote {filename} to sector {str(partition.sector)}.")
                     exit(0)
             print(f"Error: Couldn't detect partition: {partitionname}")
@@ -370,14 +371,14 @@ def main():
             if not os.path.exists(filename):
                 print(f"Error: Couldn't find file: {filename}")
                 exit(0)
-            if fh.cmd_write(args.lun, start, filename)==True:
+            if fh.cmd_write(args.lun, start, filename, args.non_standard_responses)==True:
                 print(f"Wrote {filename} to sector {str(start)}.")
             else:
                 print(f"Error on writing {filename} to sector {str(start)}")
             exit(0)
         elif args.e != '':
             partitionname=args.e
-            data = fh.cmd_read_buffer(args.lun, 0, 0x4000 // cfg.SECTOR_SIZE_IN_BYTES,False)
+            data = fh.cmd_read_buffer(args.lun, 0, 0x4000 // cfg.SECTOR_SIZE_IN_BYTES, args.non_standard_responses, False)
             guid_gpt=gpt(
                     num_part_entries=args.gpt_num_part_entries,
                     part_entry_size=args.gpt_part_entry_size,

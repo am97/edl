@@ -134,7 +134,7 @@ class qualcomm_firehose:
             return False
 
 
-    def cmd_write(self,physical_partition_number,start_sector,filename,Display=True):
+    def cmd_write(self, physical_partition_number, start_sector, filename, nonStandardResponses, Display=True):
         size = os.stat(filename).st_size
         with open(filename,"rb") as rf:
             #Make sure we fill data up to the sector size
@@ -178,6 +178,12 @@ class qualcomm_firehose:
                 self.cdc.write(b'',self.cfg.MaxPayloadSizeToTargetInBytes)
                 time.sleep(0.2)
                 info = self.xml.getlog(self.cdc.read(self.cfg.MaxXMLSizeInBytes))
+                if not nonStandardResponses:
+                    rsp=self.xml.getresponse(self.cdc.read(self.cfg.MaxXMLSizeInBytes))
+                    if rsp["value"]=="ACK":
+                        return True
+                    else:
+                        print(f"Error:{info[1]}")
             else:
                 print(f"Error:{rsp}")
                 return False
@@ -228,14 +234,14 @@ class qualcomm_firehose:
                 return False
             return False
 
-    def cmd_read_buffer(self,physical_partition_number,start_sector,num_partition_sectors,Display=True):
+    def cmd_read_buffer(self, physical_partition_number, start_sector, num_partition_sectors, nonStandardResponses, Display=True):
         if Display:
             print(f"\nReading from physical partition {str(physical_partition_number)}, sector {str(start_sector)}, sectors {str(num_partition_sectors)}")
         data=f"<?xml version=\"1.0\" ?><data><read SECTOR_SIZE_IN_BYTES=\"{self.cfg.SECTOR_SIZE_IN_BYTES}\""+\
              f" num_partition_sectors=\"{num_partition_sectors}\""+\
              f" physical_partition_number=\"{physical_partition_number}\""+\
              f" start_sector=\"{start_sector}\"/>\n</data>"
-        rsp=self.xmlsend(data, True)
+        rsp=self.xmlsend(data, nonStandardResponses)
         resData=bytearray()
         if (rsp[0])==True:
             bytesToRead=self.cfg.SECTOR_SIZE_IN_BYTES*num_partition_sectors
@@ -270,7 +276,7 @@ class qualcomm_firehose:
             return ""
         return ""
 
-    def cmd_read(self,physical_partition_number,start_sector,num_partition_sectors,filename,Display=True):
+    def cmd_read(self, physical_partition_number, start_sector, num_partition_sectors, nonStandardResponses, filename, Display=True):
         if Display:
             print(f"\nReading from physical partition {str(physical_partition_number)}, sector {str(start_sector)}, sectors {str(num_partition_sectors)}")
         with open(filename,"wb") as wf:
@@ -278,7 +284,7 @@ class qualcomm_firehose:
                  f" num_partition_sectors=\"{num_partition_sectors}\""+\
                  f" physical_partition_number=\"{physical_partition_number}\""+\
                  f" start_sector=\"{start_sector}\"/>\n</data>"
-            rsp=self.xmlsend(data, True)
+            rsp=self.xmlsend(data, nonStandardResponses)
             if (rsp[0])==True:
                 bytesToRead=self.cfg.SECTOR_SIZE_IN_BYTES*num_partition_sectors
                 total=bytesToRead
@@ -419,11 +425,11 @@ class qualcomm_firehose:
             '''
             data=f"<?xml version=\"1.0\" ?><data><peek address64=\"{address}\" SizeInBytes=\"{SizeInBytes}\" /></data>\n"
             '''
-            <?xml version="1.0" encoding="UTF-8" ?><data><log value="Using address 00100000" /></data> 
+            <?xml version="1.0" encoding="UTF-8" ?><data><log value="Using address 00100000" /></data>
             <?xml version="1.0" encoding="UTF-8" ?><data><log value="0x22 0x00 0x00 0xEA 0x70 0x00 0x00 0xEA 0x74 0x00 0x00 0xEA 0x78 0x00 0
             x00 0xEA 0x7C 0x00 0x00 0xEA 0x80 0x00 0x00 0xEA 0x84 0x00 0x00 0xEA 0x88 0x00 0x00 0xEA 0xFE 0xFF 0xFF 0xEA 0xFE 0xFF 0xFF 0xEA
             0xFE 0xFF 0xFF 0xEA 0xFE 0xFF 0xFF 0xEA 0xFE 0xFF 0xFF 0xEA 0xFE 0xFF 0xFF 0xEA 0xFE 0xFF 0xFF 0xEA 0xFE 0xFF 0xFF 0xEA 0xFE 0x
-            FF 0xFF 0xEA 0xFE 0xFF 0xFF 0xEA 0xFE 0xFF 0xFF 0xEA 0xFE 0xFF 0xFF 0xEA 0xFE 0xFF 0xFF 0xEA 0xFE 0xFF 0xFF 0xEA 0xFE 0xFF 0xFF 
+            FF 0xFF 0xEA 0xFE 0xFF 0xFF 0xEA 0xFE 0xFF 0xFF 0xEA 0xFE 0xFF 0xFF 0xEA 0xFE 0xFF 0xFF 0xEA 0xFE 0xFF 0xFF 0xEA 0xFE 0xFF 0xFF
             0xEA 0xFE 0xFF 0xFF 0xEA 0xFE 0xFF 0xFF 0xEA 0xFE 0xFF " /></data>
             '''
             try:
